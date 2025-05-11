@@ -14,6 +14,7 @@ import os
 from decimal import Decimal
 from django.conf import settings
 import re
+from django.http import FileResponse,HttpResponseNotFound
 
 from .serializers import InvoiceItemSerializer
 
@@ -108,11 +109,108 @@ def invoice_list(request):
 
 
 
+@api_view(['POST','GET'])
+def billPreview(request):
+    export_path = os.path.join(settings.BASE_DIR, "static", "export", "preview.png")
+    if request.method =="POST":
+        print(request)
+        data = request.data
 
-@api_view(['POST'])
+        image_path = os.path.join(settings.BASE_DIR, "static", 'bill.png')
+        image = Image.open(image_path)
+
+        namepos = (359,504)
+        datepos = (1343,395)
+        billdatepos = (1343,455)
+        SNpos =150 #800
+        HSpos = 200
+        itempos = 370
+        qtypos = 920
+        unitpos = 1030
+        ratepos = 1145
+        amountpos =1335
+        remarkspos = (168,1764)
+        starting_y = 800
+        multiply_y = 1
+
+        SN = 1
+
+
+        draw = ImageDraw.Draw(image)
+        font_size = 40
+        font_path = "arial.ttf"
+        text_color = (0,0,0)
+        font1 = ImageFont.truetype("arial.ttf", 40)
+        font2 = ImageFont.truetype("arial.ttf", 24)
+        font3 = ImageFont.truetype("arial.ttf", 32)
+
+        discount_amount = (float(data["Discount Percentage"]) * float(data['Total']) /100).__round__(2)
+
+
+
+        draw.text(namepos, data['To Name'], fill=text_color, font=font3)
+        draw.text(datepos, str(data['Date']), fill=text_color, font=font3)
+        draw.text(billdatepos, str(data['Date']), fill=text_color, font=font3)
+        draw_text_in_box(draw, number_to_words(float(data['Total Amount'])), font3, box=(168,1764, 1000, 1900))
+
+        draw_text_in_box(draw, str(int(float(data['Total']))), font3, box=(amountpos,1725, 1483, 1736),center=True)
+        draw_text_in_box(draw, str(int((int(float(data['Total'])) - float(data['Total'])) * 100)), font3,box=(1500, 1725, 1550, 1725), center=True)
+
+        draw_text_in_box(draw, str(int(discount_amount)), font3, box=(amountpos,1770, 1483, 1770),center=True)
+        draw_text_in_box(draw, str(int((int(discount_amount) - discount_amount) * 100)), font3,box=(1500, 1770, 1550, 1770), center=True)
+
+        draw_text_in_box(draw, str(int(float(data['Taxable Amount']))), font3, box=(amountpos,1815, 1483, 1815),center=True)
+        draw_text_in_box(draw, str(int((int(float(data['Taxable Amount'])) - float(data['Taxable Amount'])) * 100)), font3,box=(1500, 1815, 1550, 1815), center=True)
+
+        draw_text_in_box(draw, str(int(float(data['VAT Amount']))), font3, box=(amountpos,1860, 1483, 1860),center=True)
+        draw_text_in_box(draw, str(-int((int(float(data['VAT Amount'])) - float(data['VAT Amount'])) * 100)), font3,box=(1500, 1860, 1550, 1860), center=True)
+
+        draw_text_in_box(draw, str(int(float(data['Total Amount']))), font3, box=(amountpos,1905, 1483, 1905),center=True)
+        draw_text_in_box(draw, str(- int((int(float(data['Total Amount'])) - float(data['Total Amount'])) * 100)), font3,box=(1500, 1905, 1550, 1905), center=True)
+
+
+        # serializer = dataItemSerializer(data.Items.all(),many=True)
+
+        for item in data['Invoice Items']:
+            multiply_y = 1
+            # draw.text((SNpos,starting_y), str(SN), fill=text_color, font=font2)
+            # draw.text((HSpos,starting_y), str(item['HS_Code']), fill=text_color, font=font2)
+
+            lines_SN = draw_text_in_box(draw, str(SN), font2, box=(SNpos, starting_y, 180, starting_y),center=True)
+            lines_HS =draw_text_in_box(draw, str(item['H.S Code']), font2, box=(HSpos, starting_y, 340, starting_y),center=True)
+            lines_Name= draw_text_in_box(draw, str(item['Name']), font2, box=(itempos, starting_y, 880, 1700),center=False)
+            lines_Qty =draw_text_in_box(draw, str(item['Quantity']), font2, box=(qtypos, starting_y, 1000, starting_y),center=True)
+            lines_Unit =draw_text_in_box(draw, str(item['Unit']), font2, box=(unitpos, starting_y, 1115, starting_y),center=True)
+            lines_Rate =draw_text_in_box(draw, str(item['Rate']), font2, box=(ratepos, starting_y, 1300, starting_y),center=True)
+            lines_Amount =draw_text_in_box(draw, str(int(float(item['Amount']))), font2, box=(amountpos, starting_y, 1483, starting_y),center=True)
+            lines_Paise =draw_text_in_box(draw, str(int((int(float(item['Amount'])) - float(item['Amount']))*100)), font2, box=(1500, starting_y, 1550, starting_y),center=True)
+
+            multiply_y = max(lines_SN, lines_HS, lines_Name, lines_Qty, lines_Unit, lines_Rate, lines_Amount, lines_Paise)
+
+
+            starting_y += (32*multiply_y)
+            SN +=1
+
+
+
+
+        # safe_name = re.sub(r'[\\/*?:"<>|]', "_", data['To Name'])
+        # export_filename = f"{safe_name}_{data['Total Amount']}.png"
+        # export_path = os.path.join(settings.BASE_DIR, "static", "export", "preview".png)
+        image.save(export_path)
+        return Response({'status': 'Image generated successfully'},status=status.HTTP_200_OK)
+
+    elif request.method == 'GET':
+        if os.path.exists(export_path):
+            return FileResponse(open(export_path, 'rb'), content_type='image/png')
+        else:
+            return HttpResponseNotFound('Image not found')
+
+
+@api_view(['GET'])
 def billGenerator(request,pk):
     invoice = get_object_or_404(Invoice,pk=pk)
-    print(invoice.Total)
+
     image_path = os.path.join(settings.BASE_DIR, "static", 'bill.png')
     image = Image.open(image_path)
 
@@ -184,7 +282,6 @@ def billGenerator(request,pk):
 
         multiply_y = max(lines_SN, lines_HS, lines_Name, lines_Qty, lines_Unit, lines_Rate, lines_Amount, lines_Paise)
 
-        print(multiply_y)
 
         starting_y += (32*multiply_y)
         SN +=1
@@ -196,7 +293,13 @@ def billGenerator(request,pk):
     export_filename = f"{safe_name}_{invoice.Total_Amount}.png"
     export_path = os.path.join(settings.BASE_DIR, "static", "export", export_filename)
     image.save(export_path)
-    return Response()
+
+    if os.path.exists(export_path):
+        return FileResponse(open(export_path, 'rb'), content_type='image/png')
+    else:
+        return HttpResponseNotFound('Image not found')
+
+
 
 
 def get_text_width(text, font):
@@ -314,6 +417,9 @@ def number_to_words(n):
         return f"{paise_part} Paisa only"
     else:
         return "Zero Rupees only"
+
+
+
 
 
 

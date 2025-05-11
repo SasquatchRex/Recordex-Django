@@ -14,6 +14,7 @@ urlpatterns = [
     # Invoice
     path('create/invoice/',Invoice.create_invoice),
     path('invoices/',Invoice.invoice_list),
-    path('invoice/bill/<int:pk>/',Invoice.billGenerator)
+    path('invoice/bill/<int:pk>/',Invoice.billGenerator),
+    path('invoice/preview/',Invoice.billPreview)
     # path('invoice/',Invoice.InvoiceItem),
 ]
