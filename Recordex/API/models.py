@@ -8,16 +8,21 @@ from django.contrib.auth.models import User
 
 class Invoice(models.Model):
     creator = models.ForeignKey(User, on_delete=models.CASCADE) # who processed the bill
-    date = models.DateTimeField() # Date in which Bill is Created
+    date = models.DateField() # TRANSACTION DATE & BILLED DATE SHOULD BE SEPARATED
+
+    payment_paid = models.BooleanField(blank=True,default=False)
 
     # Owner Information
-    to_Name = models.TextField(max_length=200) # Name of Company
-    from_PAN = models.IntegerField() # PAN number of Owner
+    from_Name = models.TextField(max_length=200)  #  NOT REQUIRED
+    from_PAN = models.IntegerField() #  NOT REQUIRED
 
 
     # Receiver Information
-    from_Name = models.TextField(max_length=200) #Name of receiving Company
+
+    to_Name = models.TextField(max_length=200)  # Name of Company
     to_PAN = models.IntegerField() # PAN number of receiver
+    to_address = models.TextField(max_length=100,blank=True,default="") # address of receiver
+
 
     # Payment Information
     Total = models.DecimalField(max_digits=10,decimal_places=2)
@@ -28,7 +33,7 @@ class Invoice(models.Model):
     Remarks = models.TextField(max_length=600,blank=True)
 
     def __str__(self):
-        return f"{self.date.date()}  |   Invoice #{self.id}   |   {self.to_Name}  |   Total Amount:   {self.Total_Amount}"
+        return f"{self.date}  |   Invoice #{self.id}   |   {self.to_Name}  |   Total Amount:   {self.Total_Amount}"
 
 
 

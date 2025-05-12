@@ -28,6 +28,7 @@ def create_invoice(request):
         invoice = Invoice.objects.create(
             creator = request.user,
             date = data["Date"],
+            payment_paid = data["Payment Paid"],
 
             to_Name = data["To Name"],
             to_PAN = data["To PAN"],
@@ -75,7 +76,7 @@ def invoice_list(request):
         {
             "id": invoice.id,
             "creator": invoice.creator.username if invoice.creator else None,
-            "date": str(invoice.date.date()),
+            "date": str(invoice.date),
             "To Name": invoice.to_Name,
             "To PAN" : invoice.to_PAN,
 
@@ -88,6 +89,7 @@ def invoice_list(request):
             "Total Amount" : Decimal(invoice.Total_Amount),
             "Taxable Amount" : Decimal(invoice.Taxable_Amount),
             "Remarks": str(invoice.Remarks),
+            "Payment Paid": bool(invoice.payment_paid)
 
             # "items" : [{
             #     "HS Code" :item.HS_Code,
@@ -122,6 +124,7 @@ def billPreview(request):
         namepos = (359,504)
         datepos = (1343,395)
         billdatepos = (1343,455)
+        addresspos = (375,570)
         SNpos =150 #800
         HSpos = 200
         itempos = 370
@@ -151,6 +154,7 @@ def billPreview(request):
         draw.text(namepos, data['To Name'], fill=text_color, font=font3)
         draw.text(datepos, str(data['Date']), fill=text_color, font=font3)
         draw.text(billdatepos, str(data['Date']), fill=text_color, font=font3)
+        draw.text(addresspos,str(data["Address"]),fill=text_color,font=font3)
         draw_text_in_box(draw, number_to_words(float(data['Total Amount'])), font3, box=(168,1764, 1000, 1900))
 
         draw_text_in_box(draw, str(int(float(data['Total']))), font3, box=(amountpos,1725, 1483, 1736),center=True)
@@ -217,6 +221,7 @@ def billGenerator(request,pk):
     namepos = (359,504)
     datepos = (1343,395)
     billdatepos = (1343,455)
+    addresspos = (375, 570)
     SNpos =150 #800
     HSpos = 200
     itempos = 370
@@ -244,8 +249,9 @@ def billGenerator(request,pk):
 
 
     draw.text(namepos, invoice.to_Name, fill=text_color, font=font3)
-    draw.text(datepos, str(invoice.date.date()), fill=text_color, font=font3)
-    draw.text(billdatepos, str(invoice.date.date()), fill=text_color, font=font3)
+    draw.text(datepos, str(invoice.date), fill=text_color, font=font3)
+    draw.text(billdatepos, str(invoice.date), fill=text_color, font=font3)
+    draw.text(addresspos, str(invoice.to_address), fill=text_color, font=font3)
     draw_text_in_box(draw, number_to_words(invoice.Total_Amount), font3, box=(168,1764, 1000, 1900))
 
     draw_text_in_box(draw, str(int(float(invoice.Total))), font3, box=(amountpos,1725, 1483, 1736),center=True)
