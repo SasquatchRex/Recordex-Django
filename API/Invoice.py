@@ -2,7 +2,7 @@ from django.template.defaultfilters import center
 from rest_framework.decorators import api_view
 from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
-from .models import Invoice, InvoiceItem
+from .models import Invoice, InvoiceItem, Company
 from django.db import transaction
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -36,6 +36,7 @@ def create_invoice(request):
 
             to_Name = data["To Name"],
             to_PAN = data["To PAN"],
+            to_address = data["Address"],
             # from_Name = data["From Name"],
             # from_PAN = data["From PAN"],
 
@@ -58,7 +59,7 @@ def create_invoice(request):
                 Amount=Decimal(item['Amount'])
             )
 
-    return Response({'message': 'Invoice created successfully','id': invoice.id},status=status.HTTP_200_OK)
+    return Response({'message': 'Invoice created successfully','Invoice Number': invoice.InvoiceNumber},status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
@@ -67,7 +68,7 @@ def invoice_list(request):
     from_date = request.GET.get('from')
     to_date = request.GET.get('to')
 
-    invoices = Invoice.objects.all()
+    invoices = Invoice.objects.filter(company = request.user.company)
 
     if from_date and to_date:
         from_date = parse_date(from_date)
@@ -78,9 +79,9 @@ def invoice_list(request):
 
     data = [
         {
-            "id": invoice.id,
+            "Invoice Number": invoice.InvoiceNumber,
             "creator": invoice.creator.username if invoice.creator else None,
-            "date": str(invoice.date),
+            "date": str(invoice.Date),
             "To Name": invoice.to_Name,
             "To PAN" : invoice.to_PAN,
 
@@ -124,8 +125,9 @@ def billPreview(request):
 
         image_path = os.path.join(settings.BASE_DIR, "static", 'bill.png')
         image = Image.open(image_path)
-
+        invoicepos = (314,390)
         namepos = (359,504)
+        panpos = ( 407,640)
         datepos = (1343,395)
         billdatepos = (1343,455)
         addresspos = (375,570)
@@ -145,30 +147,40 @@ def billPreview(request):
 
         draw = ImageDraw.Draw(image)
         font_size = 40
-        font_path = "arial.ttf"
+        font_path = "DejaVuSans"
         text_color = (0,0,0)
-        font1 = ImageFont.truetype("arial.ttf", 40)
-        font2 = ImageFont.truetype("arial.ttf", 24)
-        font3 = ImageFont.truetype("arial.ttf", 32)
+        font1 = ImageFont.truetype("DejaVuSans.ttf", 40)
+        font2 = ImageFont.truetype("DejaVuSans.ttf", 24)
+        font3 = ImageFont.truetype("DejaVuSans.ttf", 32)
 
         discount_amount = (float(data["Discount Percentage"]) * float(data['Total']) /100).__round__(2)
 
+        if(data['To PAN'] != "-"):
+            x, y = panpos
+            spacing = 50
+            for char in str(data["To PAN"]):
+                draw.text((x, y), char, font=font3, fill="black")
+            x += spacing
 
+
+        # draw.text(panpos, str(data["To PAN"]), fill=text_color, font=font3, spacing=40)
 
         draw.text(namepos, data['To Name'], fill=text_color, font=font3)
         draw.text(datepos, str(data['Date']), fill=text_color, font=font3)
         draw.text(billdatepos, str(data['Date']), fill=text_color, font=font3)
         draw.text(addresspos,str(data["Address"]),fill=text_color,font=font3)
+        draw.text(invoicepos,"-",fill=text_color,font=font3)
+
         draw_text_in_box(draw, number_to_words(float(data['Total Amount'])), font3, box=(168,1764, 1000, 1900))
 
         draw_text_in_box(draw, str(int(float(data['Total']))), font3, box=(amountpos,1725, 1483, 1736),center=True)
         draw_text_in_box(draw, str(int((int(float(data['Total'])) - float(data['Total'])) * 100)), font3,box=(1500, 1725, 1550, 1725), center=True)
 
         draw_text_in_box(draw, str(int(discount_amount)), font3, box=(amountpos,1770, 1483, 1770),center=True)
-        draw_text_in_box(draw, str(int((int(discount_amount) - discount_amount) * 100)), font3,box=(1500, 1770, 1550, 1770), center=True)
+        draw_text_in_box(draw, str(int(round((float(discount_amount) % 1) * 100))), font3,box=(1500, 1770, 1550, 1770), center=True)
 
         draw_text_in_box(draw, str(int(float(data['Taxable Amount']))), font3, box=(amountpos,1815, 1483, 1815),center=True)
-        draw_text_in_box(draw, str(int((int(float(data['Taxable Amount'])) - float(data['Taxable Amount'])) * 100)), font3,box=(1500, 1815, 1550, 1815), center=True)
+        draw_text_in_box(draw, str(int(round((float(data['Discount Percentage']) % 1) * 100))), font3,box=(1500, 1815, 1550, 1815), center=True)
 
         draw_text_in_box(draw, str(int(float(data['VAT Amount']))), font3, box=(amountpos,1860, 1483, 1860),center=True)
         draw_text_in_box(draw, str(-int((int(float(data['VAT Amount'])) - float(data['VAT Amount'])) * 100)), font3,box=(1500, 1860, 1550, 1860), center=True)
@@ -225,7 +237,8 @@ def billGenerator(request,pk):
 
     image_path = os.path.join(settings.BASE_DIR, "static", 'bill.png')
     image = Image.open(image_path)
-
+    invoicepos = (314, 390)
+    panpos = (407, 640)
     namepos = (359,504)
     datepos = (1343,395)
     billdatepos = (1343,455)
@@ -246,30 +259,37 @@ def billGenerator(request,pk):
 
     draw = ImageDraw.Draw(image)
     font_size = 40
-    font_path = "arial.ttf"
+    font_path = "DejaVuSans.ttf"
     text_color = (0,0,0)
-    font1 = ImageFont.truetype("arial.ttf", 40)
-    font2 = ImageFont.truetype("arial.ttf", 24)
-    font3 = ImageFont.truetype("arial.ttf", 32)
+    font1 = ImageFont.truetype("DejaVuSans.ttf", 40)
+    font2 = ImageFont.truetype("DejaVuSans.ttf", 24)
+    font3 = ImageFont.truetype("DejaVuSans.ttf", 32)
 
-    discount_amount = (invoice.Discount_Percentage * invoice.Total /100).__round__(2)
+    discount_amount =float( (invoice.Discount_Percentage * invoice.Total /100).__round__(2))
 
+    if (invoice.To_PAN != "-"):
+        x, y = panpos
+        spacing = 50
+        for char in str(invoice.to_PAN):
+            draw.text((x, y), char, font=font3, fill="black")
+            x += spacing
 
-
+    draw.text(invoicepos, str(invoice.InvoiceNumber), fill=text_color, font=font3)
     draw.text(namepos, invoice.to_Name, fill=text_color, font=font3)
-    draw.text(datepos, str(invoice.date), fill=text_color, font=font3)
-    draw.text(billdatepos, str(invoice.date), fill=text_color, font=font3)
-    draw.text(addresspos, str(invoice.to_address), fill=text_color, font=font3)
+    draw.text(datepos, str(invoice.Date), fill=text_color, font=font3)
+    draw.text(billdatepos, str(invoice.Date), fill=text_color, font=font3)
+    print(invoice.to_address)
+    draw.text(addresspos, invoice.to_address, fill=text_color, font=font3)
     draw_text_in_box(draw, number_to_words(invoice.Total_Amount), font3, box=(168,1764, 1000, 1900))
 
     draw_text_in_box(draw, str(int(float(invoice.Total))), font3, box=(amountpos,1725, 1483, 1736),center=True)
     draw_text_in_box(draw, str(int((int(float(invoice.Total)) - float(invoice.Total)) * 100)), font3,box=(1500, 1725, 1550, 1725), center=True)
 
     draw_text_in_box(draw, str(int(discount_amount)), font3, box=(amountpos,1770, 1483, 1770),center=True)
-    draw_text_in_box(draw, str(int((int(discount_amount) - discount_amount) * 100)), font3,box=(1500, 1770, 1550, 1770), center=True)
+    draw_text_in_box(draw, str(int(round((float(discount_amount) % 1) * 100))), font3,box=(1500, 1770, 1550, 1795), center=True)
 
     draw_text_in_box(draw, str(int(float(invoice.Taxable_Amount))), font3, box=(amountpos,1815, 1483, 1815),center=True)
-    draw_text_in_box(draw, str(int((int(float(invoice.Taxable_Amount)) - float(invoice.Taxable_Amount)) * 100)), font3,box=(1500, 1815, 1550, 1815), center=True)
+    draw_text_in_box(draw, str(-int(round((float(invoice.Taxable_Amount) % 1) * 100))), font3,box=(1500, 1815, 1550, 1815), center=True)
 
     draw_text_in_box(draw, str(int(float(invoice.VAT_Amount))), font3, box=(amountpos,1860, 1483, 1860),center=True)
     draw_text_in_box(draw, str(-int((int(float(invoice.VAT_Amount)) - float(invoice.VAT_Amount)) * 100)), font3,box=(1500, 1860, 1550, 1860), center=True)

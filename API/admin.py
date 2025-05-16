@@ -51,3 +51,16 @@ class InvoiceAdmin(admin.ModelAdmin):
     # list_display = ('InvoiceNumber', 'company')
     list_filter = ('company',)
 admin.site.register(Invoice, InvoiceAdmin)
+
+from .models import Expense, ExpenseItem
+
+class ExpenseItemInline(admin.TabularInline):
+    model = ExpenseItem
+    extra = 0  # no empty rows
+
+class ExpenseAdmin(admin.ModelAdmin):
+    inlines = [ExpenseItemInline]
+    fields = ['creator','company','Date','from_Name','from_PAN','Total','Discount_Percentage','Taxable_Amount','VAT_Amount','Total_Amount','payment_paid','Remarks']  # This will show all fields of the Invoice model in the admin form
+    # list_display = ('InvoiceNumber', 'company')
+    list_filter = ('company',)
+admin.site.register(Expense, ExpenseAdmin)

@@ -1,7 +1,7 @@
 from django.urls import path
 from . import views
 from . import Authentication
-from . import Invoice
+from . import Invoice,expense
 
 urlpatterns = [
     # Authentication
@@ -13,7 +13,11 @@ urlpatterns = [
     # Invoice
     path('create/invoice/',Invoice.create_invoice),
     path('invoices/',Invoice.invoice_list),
-    path('invoice/bill/<int:pk>/',Invoice.billGenerator),
-    path('invoice/preview/',Invoice.billPreview)
+    path('invoice/bill/<str:pk>/',Invoice.billGenerator),
+    path('invoice/preview/',Invoice.billPreview),
     # path('invoice/',Invoice.InvoiceItem),
+
+    #Expense
+    path('create/expense/',expense.create_expense),
+    path('expesne/',expense.expense_list),
 ]

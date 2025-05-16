@@ -21,6 +21,7 @@ def login_view(request):
 
     if user and user.check_password(password):
         refresh = RefreshToken.for_user(user)
+        print(refresh.access_token)
         return Response({
             'access': str(refresh.access_token),
             'message': 'Login successful'
